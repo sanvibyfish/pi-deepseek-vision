@@ -18,8 +18,7 @@
 		"src",
 		"deepseek-vision.example.json",
 		"README.md",
-		"README_CN.md",
-		"README_EN.md"
+		"README_CN.md"
 	],
 	"pi": {
 		"extensions": [
