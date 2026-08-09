@@ -36,10 +36,8 @@ pi install /absolute/path/to/pi-deepseek-vision
 ### 从 GitHub 仓库安装
 
 ```bash
-pi install git:github.com/<owner>/pi-deepseek-vision
+pi install git:github.com/sanvibyfish/pi-deepseek-vision
 ```
-
-仓库 owner 目前未在项目中确定。请把 `<owner>` 替换为实际的 GitHub 用户名或组织名；不要原样执行带占位符的命令。
 
 ## 首次配置
 

@@ -15,10 +15,10 @@
 pi install /absolute/path/to/pi-deepseek-vision
 ```
 
-GitHub（请替换 `<owner>`）/ GitHub (replace `<owner>`):
+GitHub:
 
 ```bash
-pi install git:github.com/<owner>/pi-deepseek-vision
+pi install git:github.com/sanvibyfish/pi-deepseek-vision
 ```
 
 安装后创建 `~/.pi/agent/deepseek-vision.json`，再在 Pi 中执行 `/reload`。完整配置和使用说明请进入上方对应语言文档。

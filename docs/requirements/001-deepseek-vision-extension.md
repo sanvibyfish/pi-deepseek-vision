@@ -49,7 +49,7 @@ Pi 已具备完成同类能力所需的原生扩展点：
 
 - 项目产物必须是可独立安装的 Pi Package。
 - Package 内包含一个 TypeScript Extension，暂定包名与仓库名为 `pi-deepseek-vision`。
-- 支持通过 `pi install <local-path>` 和 `pi install git:github.com/<owner>/pi-deepseek-vision` 安装。
+- 支持通过 `pi install <local-path>` 和 `pi install git:github.com/sanvibyfish/pi-deepseek-vision` 安装。
 - 不修改 Pi 源码，不要求用户维护 Pi fork。
 
 #### 4.1.2 目标模型门控

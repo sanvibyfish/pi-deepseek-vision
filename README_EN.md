@@ -36,10 +36,8 @@ pi install /absolute/path/to/pi-deepseek-vision
 ### Install from a GitHub repository
 
 ```bash
-pi install git:github.com/<owner>/pi-deepseek-vision
+pi install git:github.com/sanvibyfish/pi-deepseek-vision
 ```
-
-The repository owner is not currently established in this project. Replace `<owner>` with the actual GitHub username or organization; do not run the placeholder unchanged.
 
 ## First-time configuration
 
