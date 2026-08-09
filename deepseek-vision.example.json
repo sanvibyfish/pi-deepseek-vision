@@ -1,0 +1,16 @@
+{
+	"visionModel": {
+		"provider": "your-vision-provider",
+		"id": "your-vision-model"
+	},
+	"targetModels": [
+		"deepseek-v4-pro",
+		"deepseek-v4-flash"
+	],
+	"language": "auto",
+	"maxAnalysisChars": 20000,
+	"cache": {
+		"capacity": 128,
+		"ttlSeconds": 900
+	}
+}
