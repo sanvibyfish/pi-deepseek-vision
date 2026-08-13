@@ -103,7 +103,7 @@ export function createContextHandler(
 	let cache: AnalysisCache | undefined;
 
 	return async (event, ctx) => {
-		if (ctx.model?.provider !== "deepseek") {
+		if (ctx.model === undefined) {
 			return undefined;
 		}
 		if (!containsImages(event.messages)) {
@@ -121,6 +121,16 @@ export function createContextHandler(
 
 			fixedConfig ??= loadConfig(configPath);
 			const config = fixedConfig;
+
+			// Optional provider allowlist. When omitted (default), any provider running a
+			// target model is handled, so the extension adapts to the user's environment
+			// (for example a gateway provider such as opencode-go).
+			if (
+				config.targetProviders !== undefined &&
+				!config.targetProviders.includes(ctx.model.provider)
+			) {
+				return undefined;
+			}
 
 			visionModelId = `${config.visionModel.provider}/${config.visionModel.id}`;
 			stage = "vision model lookup";

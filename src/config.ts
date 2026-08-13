@@ -12,6 +12,8 @@ export interface VisionModelConfig {
 export interface DeepSeekVisionConfig {
 	visionModel: VisionModelConfig;
 	targetModels: string[];
+	/** Optional provider allowlist. Undefined means any provider is allowed (default). */
+	targetProviders?: string[];
 	language: AnalysisLanguage;
 	maxAnalysisChars: number;
 	cache: {
@@ -120,7 +122,11 @@ export function loadConfig(path = DEFAULT_CONFIG_PATH): DeepSeekVisionConfig {
 	}
 
 	const root = objectValue(parsed, "root");
-	rejectUnknownKeys(root, ["visionModel", "targetModels", "language", "maxAnalysisChars", "cache"], "root");
+	rejectUnknownKeys(
+		root,
+		["visionModel", "targetModels", "targetProviders", "language", "maxAnalysisChars", "cache"],
+		"root",
+	);
 
 	const visionModelValue = objectValue(root.visionModel, "visionModel");
 	rejectUnknownKeys(visionModelValue, ["provider", "id"], "visionModel");
@@ -139,6 +145,19 @@ export function loadConfig(path = DEFAULT_CONFIG_PATH): DeepSeekVisionConfig {
 		);
 		if (new Set(targetModels).size !== targetModels.length) {
 			fail("targetModels must not contain duplicates");
+		}
+	}
+
+	let targetProviders: string[] | undefined;
+	if (root.targetProviders !== undefined) {
+		if (!Array.isArray(root.targetProviders) || root.targetProviders.length === 0) {
+			fail("targetProviders must be a non-empty array");
+		}
+		targetProviders = root.targetProviders.map((provider, index) =>
+			nonEmptyString(provider, `targetProviders[${index}]`),
+		);
+		if (new Set(targetProviders).size !== targetProviders.length) {
+			fail("targetProviders must not contain duplicates");
 		}
 	}
 
@@ -171,5 +190,5 @@ export function loadConfig(path = DEFAULT_CONFIG_PATH): DeepSeekVisionConfig {
 		};
 	}
 
-	return { visionModel, targetModels, language, maxAnalysisChars, cache };
+	return { visionModel, targetModels, targetProviders, language, maxAnalysisChars, cache };
 }

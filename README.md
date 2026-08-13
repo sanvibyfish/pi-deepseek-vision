@@ -83,6 +83,7 @@ Replace `visionModel.provider` and `visionModel.id` with the provider and model 
 | `visionModel.provider` | Yes | None | Non-empty provider identifier for the vision model. |
 | `visionModel.id` | Yes | None | Non-empty model ID for the vision model. |
 | `targetModels` | No | `deepseek-v4-pro`, `deepseek-v4-flash` | DeepSeek model IDs allowed to trigger the extension; it must be a non-empty string array without duplicates. |
+| `targetProviders` | No | Unrestricted | Optional provider allowlist that limits which providers trigger the extension (for example `["deepseek", "opencode-go"]`). When omitted, any provider running a target model is handled, so the extension adapts to your setup. It must be a non-empty string array without duplicates. |
 | `language` | No | `auto` | Analysis language: `zh`, `en`, or `auto`. `auto` uses the language of the associated user context, or English when unclear. |
 | `maxAnalysisChars` | No | `20000` | Maximum VLM analysis length in characters; it must be a positive safe integer. Exceeding it aborts the current call instead of truncating the analysis. |
 | `cache.capacity` | No | `128` | Maximum number of in-process cache entries; it must be a positive safe integer. The least recently used entry is evicted when capacity is exceeded. |
@@ -118,7 +119,7 @@ When the `read` `toolResult` contains an image, the extension analyzes it before
 
 ## Runtime behavior
 
-The extension runs only when all of these conditions are met: the current provider is `deepseek`, the current model ID is listed in `targetModels`, and the current visible context contains an image. Other requests do not call the VLM or rewrite messages.
+The extension runs only when all of these conditions are met: the current model ID is listed in `targetModels`, the current provider is not excluded by an optional `targetProviders` allowlist, and the current visible context contains an image. Other requests do not call the VLM or rewrite messages.
 
 The extension processes images in `user` and `toolResult` messages one message at a time. Images in the same message retain their order and are jointly analyzed once; separate messages are analyzed separately. During a real VLM request, the Pi UI shows the number of images being analyzed; a cache hit does not show that status.
 

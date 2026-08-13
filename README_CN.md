@@ -83,6 +83,7 @@ $EDITOR ~/.pi/agent/deepseek-vision.json
 | `visionModel.provider` | 是 | 无 | 非空的视觉模型 provider 标识。 |
 | `visionModel.id` | 是 | 无 | 非空的视觉模型 ID。 |
 | `targetModels` | 否 | `deepseek-v4-pro`、`deepseek-v4-flash` | 允许触发扩展的 DeepSeek model ID 列表；必须是非空、无重复项的字符串数组。 |
+| `targetProviders` | 否 | 不限 | 可选的 provider 白名单，限制只在哪些 provider 下触发（例如 `["deepseek", "opencode-go"]`）。不配置时不限制 provider，任何以目标模型运行的 provider 都会被处理，自动适配你的环境。必须是非空、无重复项的字符串数组。 |
 | `language` | 否 | `auto` | 分析语言，可选 `zh`、`en` 或 `auto`。`auto` 使用关联用户上下文的语言；无法判断时使用英文。 |
 | `maxAnalysisChars` | 否 | `20000` | VLM 分析文本的最大字符数，必须是正安全整数。超限会中止当前调用，不会自动截断。 |
 | `cache.capacity` | 否 | `128` | 进程内缓存的最大条目数，必须是正安全整数。超出容量时淘汰最久未使用的条目。 |
@@ -118,7 +119,7 @@ $EDITOR ~/.pi/agent/deepseek-vision.json
 
 ## 运行行为
 
-扩展仅在以下条件同时满足时运行：当前 provider 为 `deepseek`、当前 model ID 命中 `targetModels`，并且当前可见上下文包含图片。其他请求不会调用 VLM，也不会改写消息。
+扩展仅在以下条件同时满足时运行：当前 model ID 命中 `targetModels`、当前 provider 不在可选的 `targetProviders` 白名单之外，并且当前可见上下文包含图片。其他请求不会调用 VLM，也不会改写消息。
 
 扩展按消息处理 `user` 和 `toolResult` 图片。同一消息中的图片保持顺序并联合分析一次，不同消息分别分析。真实 VLM 请求期间，Pi UI 会显示正在分析的图片数量；缓存命中时不会显示该状态。
 

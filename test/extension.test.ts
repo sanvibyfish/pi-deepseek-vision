@@ -168,6 +168,41 @@ describe("DeepSeek vision context handler", () => {
 		expect(state.abort).not.toHaveBeenCalled();
 	});
 
+	it("handles a target model on any provider by default (no provider restriction)", async () => {
+		const state = context({ currentModel: model("opencode-go", "deepseek-v4-flash") });
+		const handler = createContextHandler({ configPath: configPath() });
+
+		const result = await handler(imageEvent, state.ctx as never);
+
+		expect(state.complete).toHaveBeenCalledTimes(1);
+		expect(JSON.stringify(result)).not.toContain('"type":"image"');
+	});
+
+	it("skips a target model outside the configured targetProviders allowlist", async () => {
+		const state = context({ currentModel: model("opencode-go", "deepseek-v4-flash") });
+		const handler = createContextHandler({
+			configPath: configPath({ targetProviders: ["deepseek"] }),
+		});
+
+		const result = await handler(imageEvent, state.ctx as never);
+
+		expect(result).toBeUndefined();
+		expect(state.ctx.modelRegistry.find).not.toHaveBeenCalled();
+		expect(state.complete).not.toHaveBeenCalled();
+		expect(state.abort).not.toHaveBeenCalled();
+	});
+
+	it("handles a target model whose provider is listed in targetProviders", async () => {
+		const state = context({ currentModel: model("opencode-go", "deepseek-v4-flash") });
+		const handler = createContextHandler({
+			configPath: configPath({ targetProviders: ["deepseek", "opencode-go"] }),
+		});
+
+		await handler(imageEvent, state.ctx as never);
+
+		expect(state.complete).toHaveBeenCalledTimes(1);
+	});
+
 	it("reports an actionable configuration error without exposing its path", async () => {
 		const path = join(tmpdir(), "private-user-directory", "missing.json");
 		const state = context();

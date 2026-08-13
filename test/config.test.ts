@@ -40,6 +40,40 @@ describe("loadConfig", () => {
 		expect(config.cache).toEqual({ capacity: 4, ttlSeconds: 30 });
 	});
 
+	it("leaves targetProviders unrestricted by default", () => {
+		const config = loadConfig(
+			writeConfig({ visionModel: { provider: "openai", id: "gpt-5.6-luna" } }),
+		);
+
+		expect(config.targetProviders).toBeUndefined();
+	});
+
+	it("accepts an explicit targetProviders allowlist", () => {
+		const config = loadConfig(
+			writeConfig({
+				visionModel: { provider: "openai", id: "gpt-5.6-luna" },
+				targetProviders: ["deepseek", "opencode-go"],
+			}),
+		);
+
+		expect(config.targetProviders).toEqual(["deepseek", "opencode-go"]);
+	});
+
+	it.each([
+		{ targetProviders: [] },
+		{ targetProviders: [""] },
+		{ targetProviders: ["deepseek", "deepseek"] },
+	])("rejects invalid target providers: %j", (override) => {
+		expect(() =>
+			loadConfig(
+				writeConfig({
+					visionModel: { provider: "openai", id: "gpt-5.6-luna" },
+					...override,
+				}),
+			),
+		).toThrow(/deepseek vision config/i);
+	});
+
 	it.each([
 		{},
 		{ visionModel: { provider: "", id: "model" } },
