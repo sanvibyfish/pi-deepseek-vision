@@ -1,6 +1,6 @@
 {
 	"name": "pi-deepseek-vision",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Vision preprocessing for DeepSeek models in Pi",
 	"type": "module",
 	"keywords": [
