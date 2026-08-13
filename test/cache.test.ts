@@ -61,30 +61,46 @@ describe("createVisionCacheKey", () => {
 	const secondImage = { type: "image" as const, data: "secret-base64-b", mimeType: "image/jpeg" };
 	const base = {
 		images: [firstImage, secondImage],
-		prompt: "inspect the screenshots",
 		visionModel: { provider: "openai", id: "gpt-5.6-luna" },
 		language: "auto" as const,
 		promptVersion: "v1",
 	};
 
-	it("is stable without retaining image bytes or paths", () => {
+	it("is stable without retaining image bytes or prompts", () => {
 		const key = createVisionCacheKey(base);
 
 		expect(createVisionCacheKey(base)).toBe(key);
 		expect(key).not.toContain(firstImage.data);
 		expect(key).not.toContain(secondImage.data);
-		expect(key).not.toContain("inspect the screenshots");
 	});
 
-	it("isolates image order, prompt, model, language and prompt version", () => {
+	it("isolates image order, model, language and prompt version", () => {
 		const key = createVisionCacheKey(base);
 
 		expect(createVisionCacheKey({ ...base, images: [secondImage, firstImage] })).not.toBe(key);
-		expect(createVisionCacheKey({ ...base, prompt: "compare the screenshots" })).not.toBe(key);
 		expect(
 			createVisionCacheKey({ ...base, visionModel: { provider: "anthropic", id: "claude" } }),
 		).not.toBe(key);
 		expect(createVisionCacheKey({ ...base, language: "en" })).not.toBe(key);
 		expect(createVisionCacheKey({ ...base, promptVersion: "v2" })).not.toBe(key);
+	});
+
+	it("ignores the prompt by default so the same image is reused across turns", () => {
+		const key = createVisionCacheKey(base);
+
+		expect(createVisionCacheKey({ ...base, focus: "first question" })).not.toBe(key);
+		expect(createVisionCacheKey({ ...base, focus: "another question" })).not.toBe(key);
+	});
+
+	it("includes the focus in the key only for explicit reanalysis", () => {
+		const focusKey = createVisionCacheKey({ ...base, focus: "look at the buttons again" });
+
+		expect(focusKey).not.toBe(createVisionCacheKey(base));
+		expect(createVisionCacheKey({ ...base, focus: "look at the buttons again" })).toBe(
+			focusKey,
+		);
+		expect(createVisionCacheKey({ ...base, focus: "transcribe the text instead" })).not.toBe(
+			focusKey,
+		);
 	});
 });

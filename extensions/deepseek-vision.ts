@@ -22,6 +22,55 @@ const STATUS_KEY = "deepseek-vision";
 const PROMPT_VERSION = "v2";
 const MAX_FOCUS_CHARS = 2_000;
 
+// Built-in phrases that mark an explicit user request to re-analyze the images.
+// Users can append their own regular expressions via `reanalyzeTriggers`.
+const DEFAULT_REANALYZE_TRIGGERS = [
+	"重新分析",
+	"再分析",
+	"重新看",
+	"再看一眼",
+	"再看一遍",
+	"重新看一下",
+	"重新描述",
+	"重新检查",
+	"reanalyze",
+	"re-analyse",
+	"re-analyze",
+	"analyze again",
+	"analyse again",
+	"look again",
+	"take another look",
+	"review the image",
+	"look at it again",
+];
+
+function hasReanalysisIntent(text: string, extraTriggers?: string[]): boolean {
+	const triggers = [...DEFAULT_REANALYZE_TRIGGERS, ...(extraTriggers ?? [])];
+	if (triggers.length === 0) return false;
+	try {
+		return new RegExp(triggers.join("|"), "i").test(text);
+	} catch {
+		// An invalid user-supplied trigger falls back to the built-in set only.
+		return new RegExp(DEFAULT_REANALYZE_TRIGGERS.join("|"), "i").test(text);
+	}
+}
+
+function latestUserText(event: ContextEvent): string | undefined {
+	for (let index = event.messages.length - 1; index >= 0; index -= 1) {
+		const message = event.messages[index];
+		if (message.role !== "user") continue;
+		const content = message.content;
+		if (typeof content === "string") return content;
+		if (!Array.isArray(content)) continue;
+		const text = content
+			.filter((part) => part.type === "text")
+			.map((part) => part.text)
+			.join("\n");
+		if (text.trim().length > 0) return text;
+	}
+	return undefined;
+}
+
 type FailureStage =
 	| "configuration"
 	| "vision model lookup"
@@ -154,11 +203,25 @@ export function createContextHandler(
 
 			const analysisCache =
 				(cache ??= new AnalysisCache(config.cache.capacity, config.cache.ttlSeconds));
+			// Explicit reanalysis: when the latest user message asks to look at the images
+			// again, run the VLM with that message as the focus instead of reusing the
+			// default image-only analysis.
+			const latestUser = latestUserText(event);
+			const reanalyzeRequested =
+				latestUser !== undefined && hasReanalysisIntent(latestUser, config.reanalyzeTriggers);
+
 			const rewritten = await rewriteImageMessages(event.messages, async (group) => {
-				const prompt = userPrompt(group);
+				// On explicit reanalysis, fold the latest user message into the focus so the
+				// VLM sees the new intent (image-bearing user messages carry no taskIntent
+				// natively) and the focus key changes when the intent changes.
+				const effectiveGroup: VisionPromptGroup = reanalyzeRequested
+					? { ...group, taskIntent: latestUser }
+					: group;
+				const prompt = userPrompt(effectiveGroup);
+				const focus = reanalyzeRequested ? prompt : undefined;
 				const key = createVisionCacheKey({
 					images: group.images,
-					prompt,
+					focus,
 					visionModel: config.visionModel,
 					language: config.language,
 					promptVersion: PROMPT_VERSION,
@@ -171,7 +234,12 @@ export function createContextHandler(
 
 				stage = "vision model request";
 				if (ctx.hasUI) {
-					ctx.ui.setStatus(STATUS_KEY, `正在用 VLM 分析 ${group.images.length} 张图片`);
+					ctx.ui.setStatus(
+						STATUS_KEY,
+						focus === undefined
+							? `正在用 VLM 分析 ${group.images.length} 张图片`
+							: `正在按要求重新分析 ${group.images.length} 张图片`,
+					);
 				}
 
 				let response: AssistantMessage;
@@ -202,6 +270,19 @@ export function createContextHandler(
 				stage = "vision model response";
 				const analysis = extractAnalysis(response, config.maxAnalysisChars);
 				analysisCache.set(key, analysis);
+				if (focus !== undefined) {
+					// A fresh reanalysis also refreshes the default image-only entry, so
+					// later ordinary turns reuse the newer analysis.
+					analysisCache.set(
+						createVisionCacheKey({
+							images: group.images,
+							visionModel: config.visionModel,
+							language: config.language,
+							promptVersion: PROMPT_VERSION,
+						}),
+						analysis,
+					);
+				}
 				stage = "context rewrite verification";
 				return analysis;
 			});
@@ -216,7 +297,9 @@ export function createContextHandler(
 			ctx.abort();
 			const configurationDetail =
 				stage === "configuration" && error instanceof ConfigError ? error.message : undefined;
-			const message = safeFailureMessage(stage, visionModelId, configurationDetail);
+			const cause =
+				error instanceof Error && stage !== "configuration" ? `: ${error.message}` : "";
+			const message = safeFailureMessage(stage, visionModelId, configurationDetail) + cause;
 			if (ctx.hasUI) {
 				ctx.ui.notify(message, "error");
 			}

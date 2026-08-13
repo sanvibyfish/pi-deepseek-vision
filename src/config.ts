@@ -14,6 +14,8 @@ export interface DeepSeekVisionConfig {
 	targetModels: string[];
 	/** Optional provider allowlist. Undefined means any provider is allowed (default). */
 	targetProviders?: string[];
+	/** Optional extra phrases (treated as regular expressions) that trigger explicit reanalysis. */
+	reanalyzeTriggers?: string[];
 	language: AnalysisLanguage;
 	maxAnalysisChars: number;
 	cache: {
@@ -124,7 +126,15 @@ export function loadConfig(path = DEFAULT_CONFIG_PATH): DeepSeekVisionConfig {
 	const root = objectValue(parsed, "root");
 	rejectUnknownKeys(
 		root,
-		["visionModel", "targetModels", "targetProviders", "language", "maxAnalysisChars", "cache"],
+		[
+			"visionModel",
+			"targetModels",
+			"targetProviders",
+			"reanalyzeTriggers",
+			"language",
+			"maxAnalysisChars",
+			"cache",
+		],
 		"root",
 	);
 
@@ -161,6 +171,19 @@ export function loadConfig(path = DEFAULT_CONFIG_PATH): DeepSeekVisionConfig {
 		}
 	}
 
+	let reanalyzeTriggers: string[] | undefined;
+	if (root.reanalyzeTriggers !== undefined) {
+		if (!Array.isArray(root.reanalyzeTriggers) || root.reanalyzeTriggers.length === 0) {
+			fail("reanalyzeTriggers must be a non-empty array");
+		}
+		reanalyzeTriggers = root.reanalyzeTriggers.map((trigger, index) =>
+			nonEmptyString(trigger, `reanalyzeTriggers[${index}]`),
+		);
+		if (new Set(reanalyzeTriggers).size !== reanalyzeTriggers.length) {
+			fail("reanalyzeTriggers must not contain duplicates");
+		}
+	}
+
 	let language = DEFAULT_CONFIG.language;
 	if (root.language !== undefined) {
 		if (root.language !== "zh" && root.language !== "en" && root.language !== "auto") {
@@ -190,5 +213,13 @@ export function loadConfig(path = DEFAULT_CONFIG_PATH): DeepSeekVisionConfig {
 		};
 	}
 
-	return { visionModel, targetModels, targetProviders, language, maxAnalysisChars, cache };
+	return {
+		visionModel,
+		targetModels,
+		targetProviders,
+		reanalyzeTriggers,
+		language,
+		maxAnalysisChars,
+		cache,
+	};
 }

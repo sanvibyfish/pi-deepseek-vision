@@ -59,11 +59,29 @@ describe("loadConfig", () => {
 		expect(config.targetProviders).toEqual(["deepseek", "opencode-go"]);
 	});
 
+	it("accepts extra reanalysis triggers and leaves them undefined by default", () => {
+		const config = loadConfig(
+			writeConfig({
+				visionModel: { provider: "openai", id: "gpt-5.6-luna" },
+				reanalyzeTriggers: ["帮我再看看", "zoom in on"],
+			}),
+		);
+
+		expect(config.reanalyzeTriggers).toEqual(["帮我再看看", "zoom in on"]);
+		expect(
+			loadConfig(writeConfig({ visionModel: { provider: "openai", id: "gpt-5.6-luna" } }))
+				.reanalyzeTriggers,
+		).toBeUndefined();
+	});
+
 	it.each([
 		{ targetProviders: [] },
 		{ targetProviders: [""] },
 		{ targetProviders: ["deepseek", "deepseek"] },
-	])("rejects invalid target providers: %j", (override) => {
+		{ reanalyzeTriggers: [] },
+		{ reanalyzeTriggers: [""] },
+		{ reanalyzeTriggers: ["重新分析", "重新分析"] },
+	])("rejects invalid provider or trigger lists: %j", (override) => {
 		expect(() =>
 			loadConfig(
 				writeConfig({

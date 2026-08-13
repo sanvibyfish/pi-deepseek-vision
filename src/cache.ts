@@ -8,13 +8,18 @@ type CacheEntry = {
 
 export type VisionCacheKeyInput = {
 	images: readonly ImageContent[];
-	prompt: string;
 	visionModel: {
 		provider: string;
 		id: string;
 	};
 	language: "zh" | "en" | "auto";
 	promptVersion: string;
+	/**
+	 * Optional user focus, included only for explicit reanalysis requests.
+	 * Omit for the default image-only key so the same image is reused across
+	 * turns unless the user explicitly asks to analyze it again.
+	 */
+	focus?: string;
 };
 
 export class AnalysisCache {
@@ -76,16 +81,16 @@ export function createVisionCacheKey(input: VisionCacheKeyInput): string {
 		createHash("sha256").update(JSON.stringify([image.mimeType, image.data])).digest("hex"),
 	);
 
-	return createHash("sha256")
-		.update(
-			JSON.stringify([
-				imageFingerprints,
-				input.prompt,
-				input.visionModel.provider,
-				input.visionModel.id,
-				input.language,
-				input.promptVersion,
-			]),
-		)
-		.digest("hex");
+	const parts: unknown[] = [
+		imageFingerprints,
+		input.visionModel.provider,
+		input.visionModel.id,
+		input.language,
+		input.promptVersion,
+	];
+	if (input.focus !== undefined) {
+		parts.push(input.focus);
+	}
+
+	return createHash("sha256").update(JSON.stringify(parts)).digest("hex");
 }

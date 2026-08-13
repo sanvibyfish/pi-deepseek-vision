@@ -37,7 +37,7 @@ function model(provider: string, id: string, input: ("text" | "image")[] = ["tex
 
 function assistant(content: string, stopReason: "stop" | "length" = "stop") {
 	return {
-		role: "assistant",
+		role: "assistant" as const,
 		content: [text(content)],
 		api: "openai-responses",
 		provider: "vision-provider",
@@ -227,7 +227,7 @@ describe("DeepSeek vision context handler", () => {
 		expect(state.complete).toHaveBeenCalledTimes(1);
 	});
 
-	it("does not reuse the same image under a different prompt", async () => {
+	it("reuses the same image across turns under a different prompt by default", async () => {
 		const state = context();
 		const handler = createContextHandler({ configPath: configPath() });
 
@@ -240,7 +240,60 @@ describe("DeepSeek vision context handler", () => {
 			state.ctx as never,
 		);
 
+		expect(state.complete).toHaveBeenCalledTimes(1);
+	});
+
+	function reanalyzeEvent(userText: string) {
+		return {
+			type: "context" as const,
+			messages: [
+				{ role: "user" as const, content: [text("这是什么"), image()], timestamp: 1 },
+				assistant("这是截图内容"),
+				{ role: "user" as const, content: [text(userText)], timestamp: 3 },
+			],
+		};
+	}
+
+	it("re-analyzes when the user explicitly asks, using the latest message as focus", async () => {
+		const state = context();
+		const handler = createContextHandler({ configPath: configPath() });
+
+		await handler(imageEvent, state.ctx as never);
+		await handler(reanalyzeEvent("重新分析一下，重点看按钮"), state.ctx as never);
+
 		expect(state.complete).toHaveBeenCalledTimes(2);
+	});
+
+	it("replays the same reanalysis focus idempotently without a new VLM call", async () => {
+		const state = context();
+		const handler = createContextHandler({ configPath: configPath() });
+
+		await handler(imageEvent, state.ctx as never);
+		await handler(reanalyzeEvent("重新分析，重点看按钮"), state.ctx as never);
+		await handler(reanalyzeEvent("重新分析，重点看按钮"), state.ctx as never);
+
+		expect(state.complete).toHaveBeenCalledTimes(2);
+	});
+
+	it("runs a new VLM analysis when the reanalysis focus changes", async () => {
+		const state = context();
+		const handler = createContextHandler({ configPath: configPath() });
+
+		await handler(imageEvent, state.ctx as never);
+		await handler(reanalyzeEvent("重新分析，重点看按钮"), state.ctx as never);
+		await handler(reanalyzeEvent("重新分析，看文字部分"), state.ctx as never);
+
+		expect(state.complete).toHaveBeenCalledTimes(3);
+	});
+
+	it("refreshes the default entry so later ordinary turns reuse the newer analysis", async () => {
+		const state = context();
+		const handler = createContextHandler({ configPath: configPath() });
+
+		await handler(reanalyzeEvent("重新分析"), state.ctx as never);
+		await handler(imageEvent, state.ctx as never);
+
+		expect(state.complete).toHaveBeenCalledTimes(1);
 	});
 
 	it.each([

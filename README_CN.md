@@ -84,6 +84,7 @@ $EDITOR ~/.pi/agent/deepseek-vision.json
 | `visionModel.id` | 是 | 无 | 非空的视觉模型 ID。 |
 | `targetModels` | 否 | `deepseek-v4-pro`、`deepseek-v4-flash` | 允许触发扩展的 DeepSeek model ID 列表；必须是非空、无重复项的字符串数组。 |
 | `targetProviders` | 否 | 不限 | 可选的 provider 白名单，限制只在哪些 provider 下触发（例如 `["deepseek", "opencode-go"]`）。不配置时不限制 provider，任何以目标模型运行的 provider 都会被处理，自动适配你的环境。必须是非空、无重复项的字符串数组。 |
+| `reanalyzeTriggers` | 否 | 内置词组 | 追加的显式重分析触发词组（按正则匹配），例如 `["帮我再看看", "zoom in on"]`。最新用户消息命中内置或追加的触发词时，扩展会用该消息作为 focus 重新运行 VLM 分析。 |
 | `language` | 否 | `auto` | 分析语言，可选 `zh`、`en` 或 `auto`。`auto` 使用关联用户上下文的语言；无法判断时使用英文。 |
 | `maxAnalysisChars` | 否 | `20000` | VLM 分析文本的最大字符数，必须是正安全整数。超限会中止当前调用，不会自动截断。 |
 | `cache.capacity` | 否 | `128` | 进程内缓存的最大条目数，必须是正安全整数。超出容量时淘汰最久未使用的条目。 |
@@ -127,7 +128,9 @@ $EDITOR ~/.pi/agent/deepseek-vision.json
 
 ## 缓存
 
-缓存键包含有序图片内容的 SHA-256 指纹、关联 prompt、视觉模型、语言和提示词版本。相同图片使用不同 prompt 时不会复用旧分析。
+默认缓存键是图片内容、视觉模型、语言和提示词版本的 SHA-256 —— 刻意**不包含**关联 prompt。因此同一张图在跨轮次对话中会被复用，除非用户明确要求重新分析，避免在同一张截图的长时间对话里反复支付 VLM 分析费用。
+
+显式重分析（例如“重新分析一下”或“analyze it again”）会用最新用户消息作为 focus 重新运行 VLM。focus 属于重分析缓存键的一部分：用相同 focus 重放相同请求是幂等的（命中缓存），而改变 focus 会触发新的分析。一次新的重分析也会刷新默认的图片级条目，后续普通轮次会复用更新的分析结果。
 
 缓存只在当前 Pi 进程内存在，采用有界 LRU 行为。默认最多保存 128 条分析，每条在 900 秒后过期；Pi 重启后缓存清空。缓存值只保存派生分析文本和到期时间，不保存原图、base64 内容或本地路径。
 

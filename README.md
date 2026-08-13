@@ -84,6 +84,7 @@ Replace `visionModel.provider` and `visionModel.id` with the provider and model 
 | `visionModel.id` | Yes | None | Non-empty model ID for the vision model. |
 | `targetModels` | No | `deepseek-v4-pro`, `deepseek-v4-flash` | DeepSeek model IDs allowed to trigger the extension; it must be a non-empty string array without duplicates. |
 | `targetProviders` | No | Unrestricted | Optional provider allowlist that limits which providers trigger the extension (for example `["deepseek", "opencode-go"]`). When omitted, any provider running a target model is handled, so the extension adapts to your setup. It must be a non-empty string array without duplicates. |
+| `reanalyzeTriggers` | No | Built-in phrases | Optional extra phrases (treated as regular expressions) appended to the built-in triggers that request an explicit reanalysis, such as `["帮我再看看", "zoom in on"]`. When the latest user message matches a trigger, the extension re-runs the VLM with that message as the focus. |
 | `language` | No | `auto` | Analysis language: `zh`, `en`, or `auto`. `auto` uses the language of the associated user context, or English when unclear. |
 | `maxAnalysisChars` | No | `20000` | Maximum VLM analysis length in characters; it must be a positive safe integer. Exceeding it aborts the current call instead of truncating the analysis. |
 | `cache.capacity` | No | `128` | Maximum number of in-process cache entries; it must be a positive safe integer. The least recently used entry is evicted when capacity is exceeded. |
@@ -127,7 +128,9 @@ Images are replaced with `[Image N — analyzed by vision model]` markers, and j
 
 ## Cache
 
-The cache key includes SHA-256 fingerprints of the ordered image content, the associated prompt, vision model, language, and prompt version. The same image under a different prompt does not reuse an older analysis.
+The default cache key is a SHA-256 of the ordered image content, the vision model, language, and prompt version — it deliberately does **not** include the surrounding prompt. The same image is therefore reused across turns unless the user explicitly asks for a reanalysis, which avoids paying for repeated VLM analysis of the same screenshot in a long conversation.
+
+Explicit reanalysis (for example “重新分析一下” or “analyze it again”) runs a fresh VLM analysis using the latest user message as the focus. The focus is part of the reanalysis key, so replaying the same request with the same focus is idempotent (a cache hit), while changing the focus runs a new analysis. A fresh reanalysis also refreshes the default image-only entry, so later ordinary turns reuse the newer analysis.
 
 The bounded LRU cache exists only in the current Pi process. By default, it stores up to 128 analyses, each expiring after 900 seconds; restarting Pi clears it. Cache values store only derived analysis text and expiration time, never original images, base64 content, or local paths.
 
